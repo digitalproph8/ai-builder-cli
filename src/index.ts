@@ -2,7 +2,7 @@
 
 import { CLIInterface } from './cli/interface';
 import { Logger } from './utils/logger';
-import { ConfigManager } from './core/config-manager';
+import { ConfigManagerImpl } from './core/config-manager';
 import { ProjectManagerImpl } from './core/project-manager';
 import { DeploymentEngineImpl } from './core/deployment-engine';
 import { DeploymentPipeline } from './core/deployment-engine';
@@ -123,7 +123,7 @@ async function main() {
 
   try {
     // Initialize core components
-    const configManager = new ConfigManager(logger);
+    const configManager = new ConfigManagerImpl(logger);
     const projectManager = new ProjectManagerImpl(logger);
     const deploymentEngine = new DeploymentEngineImpl(logger);
     const deploymentPipeline = new DeploymentPipeline(deploymentEngine, logger);
@@ -153,7 +153,7 @@ async function main() {
   }
 }
 
-async function showWelcomeIfNeeded(configManager: ConfigManager, cli: CLIInterface): Promise<void> {
+async function showWelcomeIfNeeded(configManager: ConfigManagerImpl, cli: CLIInterface): Promise<void> {
   const hasSeenWelcome = await configManager.get('welcome.shown');
   
   if (!hasSeenWelcome) {
