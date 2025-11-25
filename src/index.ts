@@ -6,6 +6,8 @@ import { ConfigManager } from './core/config-manager';
 import { ProjectManagerImpl } from './core/project-manager';
 import { DeploymentEngineImpl } from './core/deployment-engine';
 import { DeploymentPipeline } from './core/deployment-engine';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Import commands
 import { InitCommand } from './commands/core';
@@ -13,7 +15,106 @@ import { BuildCommand } from './commands/core';
 import { DeployCommand } from './commands/core';
 import { StatusCommand } from './commands/core';
 
+class AutoBootstrap {
+  private projectRoot: string;
+  private requiredFiles: string[];
+
+  constructor() {
+    this.projectRoot = path.join(__dirname, '..');
+    this.requiredFiles = [
+      'package.json',
+      'tsconfig.json',
+      'node_modules'
+    ];
+  }
+
+  // Check if setup is needed
+  needsSetup(): boolean {
+    return !this.requiredFiles.every(file => 
+      fs.existsSync(path.join(this.projectRoot, file))
+    );
+  }
+
+  // Run setup if needed
+  async ensureSetup(): Promise<void> {
+    if (this.needsSetup()) {
+      console.log('🔧 Running initial setup...');
+      
+      try {
+        // Run the setup script
+        const { spawn } = require('child_process');
+        
+        const setup = spawn('node', [path.join(this.projectRoot, 'setup.js')], {
+          stdio: 'inherit',
+          cwd: this.projectRoot
+        });
+
+        return new Promise((resolve, reject) => {
+          setup.on('close', (code: number) => {
+            if (code === 0) {
+              resolve();
+            } else {
+              reject(new Error(`Setup failed with code ${code}`));
+            }
+          });
+
+          setup.on('error', reject);
+        });
+      } catch (error) {
+        console.log('❌ Setup failed:', (error as Error).message);
+        process.exit(1);
+      }
+    }
+  }
+
+  // Check Node.js and npm availability
+  async checkPrerequisites(): Promise<void> {
+    try {
+      const { exec } = require('child_process');
+      
+      // Check Node.js
+      await new Promise((resolve, reject) => {
+        exec('node --version', (error: any, stdout: string) => {
+          if (error) {
+            console.log('❌ Node.js not found. Please install Node.js from https://nodejs.org');
+            reject(error);
+          } else {
+            console.log(`✅ Node.js: ${stdout.trim()}`);
+            resolve(stdout);
+          }
+        });
+      });
+
+      // Check npm
+      await new Promise((resolve, reject) => {
+        exec('npm --version', (error: any, stdout: string) => {
+          if (error) {
+            console.log('❌ npm not found. Please install npm');
+            reject(error);
+          } else {
+            console.log(`✅ npm: ${stdout.trim()}`);
+            resolve(stdout);
+          }
+        });
+      });
+
+    } catch (error) {
+      console.log('❌ Prerequisites check failed');
+      process.exit(1);
+    }
+  }
+}
+
 async function main() {
+  // Auto-bootstrap first
+  const bootstrap = new AutoBootstrap();
+  
+  // Check prerequisites
+  await bootstrap.checkPrerequisites();
+  
+  // Ensure setup is complete
+  await bootstrap.ensureSetup();
+
   // Initialize logger
   const logger = new Logger({
     level: process.env.LOG_LEVEL || 'info',
